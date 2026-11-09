@@ -10,7 +10,7 @@
   ],
   "action": {
     "default_title": "Matiks Companion",
-    "default_popup": "index.html"
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "src/background/service-worker.js",
@@ -28,4 +28,3 @@
     "128": "icon128.png"
   }
 }
-
