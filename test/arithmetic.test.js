@@ -129,4 +129,51 @@ describe("Arithmetic Engine", () => {
       expect(validateResult(Infinity, 100)).toBe(false);
     });
   });
+
+  describe("Powers and Exponentiation", () => {
+    it("should calculate powers with ^", () => {
+      expect(solve("2 ^ 8").answer).toBe(256);
+    });
+
+    it("should calculate powers with **", () => {
+      expect(solve("3 ** 4").answer).toBe(81);
+    });
+
+    it("should handle right-associative powers", () => {
+      expect(solve("2 ^ 3 ^ 2").answer).toBe(512);
+    });
+
+    it("should respect precedence over multiplication and addition", () => {
+      expect(solve("2 + 3 * 2 ^ 3").answer).toBe(26);
+    });
+  });
+
+  describe("Square Roots", () => {
+    it("should calculate sqrt with parentheses", () => {
+      expect(solve("sqrt(144)").answer).toBe(12);
+    });
+
+    it("should calculate sqrt with symbol √", () => {
+      expect(solve("√64").answer).toBe(8);
+    });
+
+    it("should calculate sqrt of expression", () => {
+      expect(solve("sqrt(9 + 16)").answer).toBe(5);
+    });
+
+    it("should reject square root of negative numbers", () => {
+      expect(() => solve("sqrt(-9)")).toThrow("Square root of negative number");
+    });
+  });
+
+  describe("Floating Point Cleanup & Implicit Multiplication", () => {
+    it("should produce clean decimals without IEEE 754 precision leakage", () => {
+      expect(solve("0.1 + 0.2").answer).toBe(0.3);
+    });
+
+    it("should handle implicit multiplication with parentheses", () => {
+      expect(solve("2(3 + 4)").answer).toBe(14);
+      expect(solve("(2 + 3)(4)").answer).toBe(20);
+    });
+  });
 });
