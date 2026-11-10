@@ -59,6 +59,17 @@ describe("Matiks Multi-Line Vertical Arithmetic", () => {
       expect(assembled).toBe("5 + 41 - 3");
       expect(solve(assembled).answer).toBe(43);
     });
+
+    it("should assemble Matiks screenshot cases (66 + 9, 2 × 6, 3 + 6)", () => {
+      expect(assembleVerticalExpression(["66", "+ 9"])).toBe("66 + 9");
+      expect(solve("66 + 9").answer).toBe(75);
+
+      expect(assembleVerticalExpression(["2", "× 6"])).toBe("2 × 6");
+      expect(solve("2 × 6").answer).toBe(12);
+
+      expect(assembleVerticalExpression(["3", "+ 6"])).toBe("3 + 6");
+      expect(solve("3 + 6").answer).toBe(9);
+    });
   });
 
   describe("extractExpression integration with multi-line OCR", () => {

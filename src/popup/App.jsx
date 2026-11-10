@@ -5,12 +5,62 @@ export default function PopupApp() {
   const [expression, setExpression] = useState("");
   const [answer, setAnswer] = useState(null);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("Ready");
+  const [status, setStatus] = useState("Checking connection...");
   const [loading, setLoading] = useState(false);
-  const [isLiveTracking, setIsLiveTracking] = useState(false);
+  const [isLiveTracking, setIsLiveTracking] = useState(true);
 
-  const trackingIntervalRef = useRef(null);
-  const lastSolvedRef = useRef("");
+  const pollIntervalRef = useRef(null);
+
+  // Sync state with active tab on mount
+  useEffect(() => {
+    syncWithActiveTab();
+
+    // Poll status every 800ms while popup is open to keep display synced with on-page HUD
+    pollIntervalRef.current = setInterval(() => {
+      syncWithActiveTab(true);
+    }, 800);
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  function syncWithActiveTab(silent = false) {
+    if (typeof chrome === "undefined" || !chrome.tabs) {
+      if (!silent) setStatus("Web Preview Mode (Extension API unavailable)");
+      return;
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (!tabId) {
+        if (!silent) setStatus("No active game tab found");
+        return;
+      }
+
+      chrome.tabs.sendMessage(tabId, { action: "PING" }, (resp) => {
+        if (chrome.runtime.lastError) {
+          if (!silent) {
+            setStatus("Disconnected from game");
+            setError("Matiks page not detected. Open your game match tab and press F5.");
+          }
+          return;
+        }
+
+        if (resp && resp.status === "PONG") {
+          setError("");
+          setIsLiveTracking(resp.isTracking);
+          if (resp.lastSolved && resp.lastSolved.success) {
+            setExpression(resp.lastSolved.expression || "");
+            setAnswer(resp.lastSolved.answer);
+            setStatus(`Synced: ${resp.lastSolved.expression} = ${resp.lastSolved.answer}`);
+          } else {
+            setStatus(resp.isTracking ? "Connected: On-page HUD active (Scanning)" : "Connected: Tracking paused");
+          }
+        }
+      });
+    });
+  }
 
   function handleCalculateManual() {
     try {
@@ -44,80 +94,55 @@ export default function PopupApp() {
         return;
       }
 
-      function executeSolveMessage() {
-        chrome.tabs.sendMessage(tabId, { action: "AUTO_DETECT" }, (resp) => {
-          setLoading(false);
-          if (chrome.runtime.lastError) {
-            setError("Connection error: please refresh your Matiks tab (F5) and try again.");
-            setStatus("Disconnected");
-            return;
-          }
-
-          if (resp && resp.success) {
-            setExpression(resp.expression || "");
-            setAnswer(resp.answer);
-            lastSolvedRef.current = resp.expression || "";
-            setStatus(`Solved: ${resp.expression} = ${resp.answer}`);
-          } else {
-            setError(resp?.error || "Could not detect equation. Make sure you are in a live match.");
-            setStatus("Board not detected");
-          }
-        });
-      }
-
-      // Check if content script needs dynamic injection
-      chrome.tabs.sendMessage(tabId, { action: "PING" }, () => {
+      chrome.tabs.sendMessage(tabId, { action: "AUTO_DETECT" }, (resp) => {
+        setLoading(false);
         if (chrome.runtime.lastError) {
-          if (chrome.scripting && chrome.scripting.executeScript) {
-            chrome.scripting.executeScript(
-              { target: { tabId }, files: ["content.js"] },
-              () => setTimeout(executeSolveMessage, 150)
-            );
-          } else {
-            setLoading(false);
-            setError("Please refresh your Matiks game tab and try again.");
-          }
+          setError("Connection error: please refresh your Matiks tab (F5) and try again.");
+          setStatus("Disconnected");
+          return;
+        }
+
+        if (resp && resp.success) {
+          setExpression(resp.expression || "");
+          setAnswer(resp.answer);
+          setStatus(`Solved: ${resp.expression} = ${resp.answer}`);
         } else {
-          executeSolveMessage();
+          setError(resp?.error || "Could not detect equation. Make sure you are in a live match.");
+          setStatus("Board not detected");
         }
       });
     });
   }
 
   function toggleLiveTracking() {
-    if (isLiveTracking) {
-      setIsLiveTracking(false);
-      if (trackingIntervalRef.current) {
-        clearInterval(trackingIntervalRef.current);
-        trackingIntervalRef.current = null;
-      }
-      setStatus("Live tracking stopped");
-    } else {
-      setIsLiveTracking(true);
-      setStatus("Live tracking active (polling every 900ms)...");
-      // Initial immediate solve
-      handleSolve();
-      trackingIntervalRef.current = setInterval(() => {
-        handleSolve();
-      }, 900);
+    if (typeof chrome === "undefined" || !chrome.tabs) {
+      setIsLiveTracking(!isLiveTracking);
+      return;
     }
-  }
 
-  // Cleanup interval on unmount
-  useEffect(() => {
-    return () => {
-      if (trackingIntervalRef.current) {
-        clearInterval(trackingIntervalRef.current);
-      }
-    };
-  }, []);
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (!tabId) return;
+
+      chrome.tabs.sendMessage(tabId, { action: "TOGGLE_TRACKING" }, (resp) => {
+        if (chrome.runtime.lastError) {
+          setError("Failed to communicate with tab. Please refresh the page.");
+          return;
+        }
+        if (resp) {
+          setIsLiveTracking(resp.isTracking);
+          setStatus(resp.isTracking ? "Live tracking active" : "Live tracking paused");
+        }
+      });
+    });
+  }
 
   function startCrop() {
     if (typeof chrome !== "undefined" && chrome.tabs) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
           chrome.tabs.sendMessage(tabs[0].id, { action: "TRIGGER_CAPTURE" });
-          window.close(); // For drag crop, close popup so user has full viewport
+          window.close();
         }
       });
     }
@@ -128,7 +153,7 @@ export default function PopupApp() {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
           chrome.tabs.sendMessage(tabs[0].id, { action: "PICK_ELEMENT" });
-          window.close(); // For element picker, close popup so user can click element
+          window.close();
         }
       });
     }
@@ -149,10 +174,14 @@ export default function PopupApp() {
           <strong style={{ fontSize: "14px", color: "#f8fafc", letterSpacing: "0.5px" }}>MATIKS COMPANION</strong>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#94a3b8" }}>
-          {isLiveTracking && (
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e" }} />
-          )}
-          <span>{isLiveTracking ? "LIVE" : "IDLE"}</span>
+          <span style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            background: isLiveTracking ? "#22c55e" : "#eab308",
+            boxShadow: isLiveTracking ? "0 0 8px #22c55e" : "none"
+          }} />
+          <span>{isLiveTracking ? "LIVE" : "PAUSED"}</span>
         </div>
       </div>
 
@@ -176,13 +205,13 @@ export default function PopupApp() {
             gap: "8px"
           }}
         >
-          {isLiveTracking ? "⏹ Stop Live Tracking" : "▶ Start Live Tracking (Continuous)"}
+          {isLiveTracking ? "⏹ Pause Live Tracking" : "▶ Start Live Tracking (Continuous)"}
         </button>
 
         {/* Single Solve Button */}
         <button
           onClick={handleSolve}
-          disabled={loading || isLiveTracking}
+          disabled={loading}
           style={{
             padding: "9px",
             background: "#1e293b",
@@ -194,7 +223,7 @@ export default function PopupApp() {
             cursor: "pointer"
           }}
         >
-          {loading ? "Scanning & Solving..." : "⚡ Solve Current Equation"}
+          {loading ? "Scanning & Solving..." : "⚡ Force Scan & Solve"}
         </button>
 
         {/* Secondary Capture Actions */}
