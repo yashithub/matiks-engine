@@ -41,6 +41,7 @@ export function assembleVerticalExpression(lines) {
     // 2. Normalize dashes and underscores to minus, strip equals/prompts
     line = line
       .replace(/[–—−_]/g, "-")
+      .replace(/[:∕]/g, "/")
       .replace(/[=?#~]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -121,7 +122,7 @@ export function extractExpression(ocrText) {
 
   // 1. Try vertical multi-line assembly first if more than 1 non-empty line exists
   const mathLines = lines.filter((line) => {
-    const cleaned = line.replace(/[–—−_]/g, "-").replace(/[=?#~]/g, "").trim();
+    const cleaned = line.replace(/[–—−_]/g, "-").replace(/[:∕]/g, "/").replace(/[=?#~]/g, "").trim();
     return /[\d+\-*/%×÷−xX^]/.test(cleaned);
   });
 

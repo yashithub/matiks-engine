@@ -70,6 +70,22 @@ describe("Matiks Multi-Line Vertical Arithmetic", () => {
       expect(assembleVerticalExpression(["3", "+ 6"])).toBe("3 + 6");
       expect(solve("3 + 6").answer).toBe(9);
     });
+
+    it("should correctly assemble and solve Matiks division problems (÷, :, /)", () => {
+      const divCases = [
+        { lines: ["36", "÷ 6"], expected: "36 ÷ 6", ans: 6 },
+        { lines: ["144", "÷ 12"], expected: "144 ÷ 12", ans: 12 },
+        { lines: ["56", "/ 8"], expected: "56 / 8", ans: 7 },
+        { lines: ["72", ": 9"], expected: "72 / 9", ans: 8 },
+        { lines: ["48", "÷", "6"], expected: "48 ÷ 6", ans: 8 }
+      ];
+
+      for (const { lines, expected, ans } of divCases) {
+        const assembled = assembleVerticalExpression(lines);
+        expect(assembled).toBe(expected);
+        expect(solve(assembled).answer).toBe(ans);
+      }
+    });
   });
 
   describe("extractExpression integration with multi-line OCR", () => {

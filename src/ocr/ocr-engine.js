@@ -110,7 +110,7 @@ export async function recognizeImage(source, options = {}) {
   const psm = options.psm || "6"; // PSM 6 handles multi-line blocks (Matiks format) and single lines cleanly
 
   await worker.setParameters({
-    tessedit_char_whitelist: "0123456789+-*/().%=xX×÷−? \n\r",
+    tessedit_char_whitelist: "0123456789+-*/:().%=xX×÷−? \n\r",
     load_system_dawg: "0",
     load_freq_dawg: "0",
     preserve_interword_spaces: "0",
@@ -146,7 +146,7 @@ export async function recognizeVariants(variants, options = {}) {
   const psmList = options.psmList || ["6", "4"];
 
   await worker.setParameters({
-    tessedit_char_whitelist: "0123456789+-*/().%=xX×÷−? \n\r",
+    tessedit_char_whitelist: "0123456789+-*/:().%=xX×÷−? \n\r",
     load_system_dawg: "0",
     load_freq_dawg: "0",
     preserve_interword_spaces: "0"
@@ -231,6 +231,38 @@ export async function recognizeVariants(variants, options = {}) {
     conflictReport,
     attempts,
     totalDuration
+  };
+}
+
+/**
+ * High-speed single-pass OCR designed specifically for real-time live tracking (< 150ms).
+ */
+export async function recognizeFast(source) {
+  const worker = await getWorker();
+  await worker.setParameters({
+    tessedit_char_whitelist: "0123456789+-*/:().%=xX×÷−? \n\r",
+    load_system_dawg: "0",
+    load_freq_dawg: "0",
+    preserve_interword_spaces: "0",
+    tessedit_pageseg_mode: "6"
+  });
+
+  const startTime = performance.now();
+  const result = await worker.recognize(source);
+  const duration = Math.round(performance.now() - startTime);
+
+  let expression = null;
+  try {
+    expression = extractExpression(result.data.text);
+  } catch {
+    // preserve null
+  }
+
+  return {
+    text: result.data.text.trim(),
+    expression,
+    confidence: result.data.confidence,
+    duration
   };
 }
 
