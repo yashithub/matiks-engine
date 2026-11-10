@@ -16,12 +16,11 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         popup: resolve(__dirname, "popup.html"),
-        background: resolve(__dirname, "src/background/service-worker.js"),
-        content: resolve(__dirname, "src/content/index.js")
+        background: resolve(__dirname, "src/background/service-worker.js")
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === "background" || chunkInfo.name === "content") {
+          if (chunkInfo.name === "background") {
             return "[name].js";
           }
           return "assets/[name]-[hash].js";
