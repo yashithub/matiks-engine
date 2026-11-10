@@ -12,17 +12,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "CAPTURE_VISIBLE_TAB") {
-    chrome.tabs.captureVisibleTab(
-      sender.tab ? sender.tab.windowId : null,
-      { format: "png" },
-      (dataUrl) => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          sendResponse({ success: true, dataUrl });
-        }
+    const callback = (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        console.error("Capture tab error:", chrome.runtime.lastError.message);
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ success: true, dataUrl });
       }
-    );
+    };
+
+    if (typeof sender.tab?.windowId === "number") {
+      chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" }, callback);
+    } else {
+      chrome.tabs.captureVisibleTab({ format: "png" }, callback);
+    }
     return true;
   }
 

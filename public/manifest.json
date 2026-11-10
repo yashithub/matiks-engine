@@ -8,6 +8,9 @@
     "storage",
     "scripting"
   ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "action": {
     "default_title": "Matiks Companion",
     "default_popup": "popup.html"
