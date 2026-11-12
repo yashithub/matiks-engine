@@ -102,9 +102,6 @@ export function detectCharacterConflicts(candidates) {
   };
 }
 
-/**
- * Executes single-pass OCR on an image source.
- */
 export async function recognizeImage(source, options = {}) {
   const worker = await getWorker();
   const psm = options.psm || "6"; // PSM 6 handles multi-line blocks (Matiks format) and single lines cleanly
